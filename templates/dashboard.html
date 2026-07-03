@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+
+{% block title %}Panel | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Panel principal</p>
+    <h1>Hola, {{ session.get('nombre', 'Usuario') }}</h1>
+    <p>Rol activo: <strong>{{ session['tipo'] }}</strong></p>
+</section>
+
+{% if session['tipo'] == 'dueno' %}
+    <section class="card-grid">
+        <article class="card feature-card">
+            <span class="icon-badge">01</span>
+            <h2>Gestionar abogados</h2>
+            <p>Crea abogados y registra sus especialidades para alimentar la asignacion automatica.</p>
+            <a class="button secondary" href="/abogados">Administrar abogados</a>
+        </article>
+        <article class="card feature-card">
+            <span class="icon-badge">02</span>
+            <h2>Ver todos los casos</h2>
+            <p>Supervisa las consultas del bufete y corrige manualmente la asignacion si lo necesitas.</p>
+            <a class="button secondary" href="/consultas">Ver casos</a>
+        </article>
+    </section>
+{% elif session['tipo'] == 'abogado' %}
+    <section class="card feature-card">
+        <span class="icon-badge">Casos</span>
+        <h2>Mis consultas asignadas</h2>
+        <p>Revisa los casos que fueron asignados segun tus areas de especialidad.</p>
+        <a class="button secondary" href="/consultas">Ver mis casos</a>
+    </section>
+{% else %}
+    <section class="card-grid">
+        <article class="card feature-card">
+            <span class="icon-badge">Nuevo</span>
+            <h2>Crear consulta</h2>
+            <p>Cuentanos tu problema legal y lo derivaremos al especialista adecuado.</p>
+            <a class="button secondary" href="/crear_consulta">Crear consulta</a>
+        </article>
+        <article class="card feature-card">
+            <span class="icon-badge">Estado</span>
+            <h2>Mis consultas</h2>
+            <p>Consulta el seguimiento y el abogado asignado a tu caso.</p>
+            <a class="button secondary" href="/consultas">Ver mis consultas</a>
+        </article>
+    </section>
+{% endif %}
+{% endblock %}

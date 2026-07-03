@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Registro | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-copy">
+        <p class="eyebrow">Nuevo usuario</p>
+        <h1>Abre una cuenta o incorpora un abogado con perfil completo.</h1>
+        <p>Los abogados pueden dejar foto, universidad, experiencia y especialidades para mejorar su presentacion y la asignacion automatica.</p>
+    </div>
+
+    <form class="card form-card" method="POST">
+        <h2>Crear cuenta</h2>
+        <label>
+            Nombre
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+        </label>
+        <label>
+            Email
+            <input type="email" name="email" placeholder="correo@ejemplo.cl" required>
+        </label>
+        <label>
+            Contrasena
+            <input type="password" name="password" placeholder="Crea una contrasena" required>
+        </label>
+        <label>
+            Tipo de usuario
+            <select name="tipo">
+                <option value="cliente">Cliente</option>
+                <option value="abogado">Abogado</option>
+            </select>
+        </label>
+
+        
+
+        <button class="button primary full" type="submit">Registrarse</button>
+    </form>
+</section>
+{% endblock %}

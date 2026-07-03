@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Nueva consulta | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-copy">
+        <p class="eyebrow">Nueva consulta</p>
+        <h1>Describe tu caso con el mayor detalle posible.</h1>
+        <p>El sistema analizara el texto y buscara un abogado con la especialidad mas cercana.</p>
+    </div>
+
+    <form class="card form-card wide" method="POST">
+        <h2>Informacion del caso</h2>
+        <label>
+            Titulo
+            <input type="text" name="titulo" placeholder="Ej: Despido injustificado" required>
+        </label>
+        <label>
+            Descripcion
+            <textarea name="descripcion" placeholder="Cuenta que ocurrio, fechas relevantes, documentos disponibles y que necesitas resolver." required></textarea>
+        </label>
+        <button class="button primary full" type="submit">Enviar consulta</button>
+    </form>
+</section>
+{% endblock %}

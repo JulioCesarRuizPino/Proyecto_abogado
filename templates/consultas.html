@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+
+{% block title %}Casos | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Gestion de casos</p>
+    <h1>Consultas legales</h1>
+    <p>Revisa la especialidad detectada desde el titulo y la descripcion, el abogado asignado, el respaldo PDF y el acceso al chat.</p>
+</section>
+
+<section class="card table-card">
+    <div class="table-wrap">
+        <table>
+            <tr>
+                <th>ID</th>
+                <th>Titulo</th>
+                <th>Descripcion</th>
+                <th>Cliente</th>
+                <th>Area detectada</th>
+                <th>Abogado</th>
+                <th>PDF</th>
+                <th>Chat</th>
+                <th>Estado</th>
+                {% if session['tipo'] == 'dueno' %}
+                    <th>Asignar</th>
+                {% endif %}
+            </tr>
+
+            {% for c in consultas %}
+            <tr>
+                <td>{{ c['id'] }}</td>
+                <td>{{ c['titulo'] }}</td>
+                <td class="description-cell">{{ c['descripcion'] }}</td>
+                <td>{{ c['cliente'] }}</td>
+                <td><span class="status-badge">{{ c['especialidad_detectada'] or 'Revision manual' }}</span></td>
+                <td>{{ c['abogado'] or 'Sin asignar' }}</td>
+                <td>
+                    {% if c['pdf_respaldo'] %}
+                        <a class="button small" href="{{ url_for('static', filename=c['pdf_respaldo']) }}" target="_blank">Ver PDF</a>
+                    {% else %}
+                        Sin PDF
+                    {% endif %}
+                </td>
+                <td>
+                    {% if c['abogado_id'] or session['tipo'] == 'dueno' %}
+                        <a class="button small" href="/consultas/{{ c['id'] }}/chat">Abrir chat</a>
+                    {% else %}
+                        Pendiente
+                    {% endif %}
+                </td>
+                <td>{{ c['estado'] }}</td>
+                {% if session['tipo'] == 'dueno' %}
+                    <td>
+                        <form class="inline-form" method="POST" action="/consultas/{{ c['id'] }}/asignar">
+                            <select name="abogado_id">
+                                <option value="">Sin asignar</option>
+                                {% for abogado in abogados %}
+                                    <option value="{{ abogado['id'] }}" {% if c['abogado_id'] == abogado['id'] %}selected{% endif %}>
+                                        {{ abogado['nombre'] }} - {{ abogado['especialidades'] or 'general' }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                            <button class="button small" type="submit">Guardar</button>
+                        </form>
+                    </td>
+                {% endif %}
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</section>
+{% endblock %}

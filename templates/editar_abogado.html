@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+
+{% block title %}Editar abogado | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Edicion de perfil</p>
+    <h1>Editar abogado</h1>
+    <p>Ajusta informacion profesional, foto y areas de especialidad.</p>
+</section>
+
+<form class="card form-card wide-form" method="POST">
+    <label>
+        Nombre
+        <input type="text" name="nombre" value="{{ abogado['nombre'] }}" required>
+    </label>
+    <label>
+        Email
+        <input type="email" name="email" value="{{ abogado['email'] }}" required>
+    </label>
+    <label>
+        Nueva contrasena
+        <input type="password" name="password" placeholder="Solo si quieres cambiarla">
+    </label>
+
+    <fieldset class="checkbox-grid">
+        <legend>Especialidades</legend>
+        {% set seleccionadas = abogado['especialidades'].split(', ') if abogado['especialidades'] else [] %}
+        {% for especialidad in especialidades_disponibles %}
+            <label>
+                <input type="checkbox" name="especialidades" value="{{ especialidad }}" {% if especialidad in seleccionadas %}checked{% endif %}>
+                {{ especialidad|capitalize }}
+            </label>
+        {% endfor %}
+    </fieldset>
+
+    <label>
+        URL de foto
+        <input type="url" name="foto_url" value="{{ abogado['foto_url'] }}">
+    </label>
+    <label>
+        Universidad
+        <input type="text" name="universidad" value="{{ abogado['universidad'] }}">
+    </label>
+    <label>
+        Experiencia
+        <input type="text" name="experiencia" value="{{ abogado['experiencia'] }}">
+    </label>
+    <label>
+        Biografia
+        <textarea name="bio">{{ abogado['bio'] }}</textarea>
+    </label>
+
+    <div class="actions">
+        <button class="button primary" type="submit">Guardar cambios</button>
+        <a class="button ghost" href="/abogados">Volver</a>
+    </div>
+</form>
+{% endblock %}

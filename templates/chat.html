@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+
+{% block title %}Chat del caso | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Chat del caso</p>
+    <h1>{{ consulta['titulo'] }}</h1>
+    <p>Cliente: {{ consulta['cliente_nombre'] }} | Abogado: {{ consulta['abogado_nombre'] or 'Sin asignar' }}</p>
+</section>
+
+<section class="chat-layout">
+    <div class="card chat-card">
+        <div class="chat-thread">
+            {% for mensaje in mensajes %}
+                <article class="chat-message {% if mensaje['remitente_id'] == session['user_id'] %}mine{% endif %}">
+                    <p class="chat-meta">{{ mensaje['remitente_nombre'] }} - {{ mensaje['remitente_tipo'] }}</p>
+                    <p>{{ mensaje['mensaje'] }}</p>
+                    <span>{{ mensaje['creado_en'] }}</span>
+                </article>
+            {% endfor %}
+        </div>
+    </div>
+
+    <form class="card form-card" method="POST">
+        <h2>Enviar mensaje</h2>
+        <label>
+            Mensaje
+            <textarea name="mensaje" placeholder="Escribe aqui el seguimiento del caso..." required></textarea>
+        </label>
+        <button class="button primary full" type="submit">Enviar</button>
+    </form>
+</section>
+{% endblock %}

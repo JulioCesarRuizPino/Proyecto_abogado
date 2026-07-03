@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %}Equipo legal | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Equipo legal</p>
+    <h1>Conoce a nuestros abogados</h1>
+    <p>Revisa sus areas de practica, formacion academica y experiencia profesional.</p>
+</section>
+
+<section class="lawyer-grid">
+    {% for abogado in abogados %}
+        <article class="card lawyer-card">
+            {% if abogado['foto_url'] %}
+                <img class="lawyer-photo" src="{{ abogado['foto_url'] }}" alt="Foto de {{ abogado['nombre'] }}">
+            {% else %}
+                <div class="lawyer-photo placeholder">{{ abogado['nombre'][0] }}</div>
+            {% endif %}
+            <h2>{{ abogado['nombre'] }}</h2>
+            <p><strong>Especialidades:</strong> {{ abogado['especialidades'] or 'General' }}</p>
+            <p><strong>Universidad:</strong> {{ abogado['universidad'] or 'No informada' }}</p>
+            <p><strong>Experiencia:</strong> {{ abogado['experiencia'] or 'No informada' }}</p>
+            <p>{{ abogado['bio'] or 'Perfil profesional en construccion.' }}</p>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}

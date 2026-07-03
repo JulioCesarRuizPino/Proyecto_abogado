@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Ingresar | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="auth-layout">
+    <div class="auth-copy">
+        <p class="eyebrow">Acceso privado</p>
+        <h1>Bienvenido a tu centro de gestion legal.</h1>
+        <p>Ingresa para revisar casos, asignaciones y el estado de las consultas.</p>
+    </div>
+
+    <form class="card form-card" method="POST">
+        <h2>Iniciar sesion</h2>
+        <label>
+            Email
+            <input type="email" name="email" placeholder="correo@bufete.cl" required>
+        </label>
+        <label>
+            Contrasena
+            <input type="password" name="password" placeholder="Tu contrasena" required>
+        </label>
+        <button class="button primary full" type="submit">Ingresar</button>
+    </form>
+</section>
+{% endblock %}

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="es">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{% block title %}Lexora Legal{% endblock %}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body data-unread-count="{{ unread_notifications }}">
+    <header class="site-header">
+        <a class="brand" href="/">
+            <span class="brand-mark">L</span>
+            <span>Lexora Legal</span>
+        </a>
+
+        <nav class="nav">
+            <a href="/abogados/publicos">Equipo legal</a>
+            {% if session.get('user_id') %}
+                <a href="/dashboard">Panel</a>
+                <a href="/consultas">Casos</a>
+                <a class="notification-link {% if unread_notifications %}has-alert{% endif %}" href="/notificaciones">
+                    Notificaciones
+                    <span class="notification-counter">{{ unread_notifications }}</span>
+                </a>
+                {% if session.get('tipo') == 'dueno' %}
+                    <a href="/abogados">Abogados</a>
+                {% endif %}
+                {% if session.get('tipo') == 'cliente' %}
+                    <a href="/crear_consulta">Nueva consulta</a>
+                {% endif %}
+                <button class="sound-toggle" type="button" data-sound-toggle>Activar sonido</button>
+                <a class="nav-pill" href="/logout">Salir</a>
+            {% else %}
+                <a href="/login">Ingresar</a>
+                <a class="nav-pill" href="/register">Registrarse</a>
+            {% endif %}
+        </nav>
+    </header>
+
+    <main class="page">
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <section class="flash-stack">
+                    {% for message in messages %}
+                        <p class="flash">{{ message }}</p>
+                    {% endfor %}
+                </section>
+            {% endif %}
+        {% endwith %}
+
+        {% block content %}{% endblock %}
+    </main>
+
+    <div class="floating-toast" data-notification-toast hidden>
+        <div class="toast-dot"></div>
+        <div>
+            <strong>Nueva notificacion</strong>
+            <p>Tienes actividad nueva en tu panel.</p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>

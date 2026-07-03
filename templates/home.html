@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}Lexora Legal | Asesoria juridica{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <div class="hero-copy">
+        <p class="eyebrow">Asesoria legal inteligente</p>
+        <h1>Tu bufete conectado con clientes, abogados, chat y seguimiento real.</h1>
+        <p>
+            Centraliza solicitudes, asigna casos automaticamente leyendo el titulo y la descripcion,
+            notifica por correo y mantiene una conversacion directa entre cliente y abogado.
+        </p>
+        <div class="actions">
+            <a class="button primary" href="/login">Ingresar al sistema</a>
+            <a class="button ghost" href="/abogados/publicos">Conocer abogados</a>
+        </div>
+    </div>
+
+    <div class="hero-card">
+        <span class="card-label">Flujo del caso</span>
+        <h2>Solicitud, asignacion, respaldo y conversacion</h2>
+        <p>Cuando se crea un caso, se genera un respaldo PDF, salen notificaciones internas, correos y se habilita un chat privado para el seguimiento.</p>
+        <div class="metric-grid">
+            <div>
+                <strong>PDF</strong>
+                <span>Respaldo del caso</span>
+            </div>
+            <div>
+                <strong>Chat</strong>
+                <span>Cliente y abogado</span>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section-heading">
+    <p class="eyebrow">Equipo destacado</p>
+    <h1>Abogados preparados para distintas areas del derecho.</h1>
+</section>
+
+<section class="lawyer-grid">
+    {% for abogado in destacados %}
+        <article class="card lawyer-card">
+            {% if abogado['foto_url'] %}
+                <img class="lawyer-photo" src="{{ abogado['foto_url'] }}" alt="Foto de {{ abogado['nombre'] }}">
+            {% else %}
+                <div class="lawyer-photo placeholder">{{ abogado['nombre'][0] }}</div>
+            {% endif %}
+            <h2>{{ abogado['nombre'] }}</h2>
+            <p><strong>Especialidades:</strong> {{ abogado['especialidades'] or 'General' }}</p>
+            <p><strong>Universidad:</strong> {{ abogado['universidad'] or 'No informada' }}</p>
+            <p>{{ abogado['bio'] or 'Perfil profesional en construccion.' }}</p>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}

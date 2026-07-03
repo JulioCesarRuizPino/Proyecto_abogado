@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+
+{% block title %}Abogados | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Equipo legal</p>
+    <h1>Gestionar abogados</h1>
+    <p>Crea perfiles completos, define especialidades y edita abogados ya existentes.</p>
+</section>
+
+<section class="split-layout">
+    <form class="card form-card" method="POST">
+        <h2>Crear abogado</h2>
+        <label>
+            Nombre
+            <input type="text" name="nombre" placeholder="Nombre completo" required>
+        </label>
+        <label>
+            Email
+            <input type="email" name="email" placeholder="abogado@bufete.cl" required>
+        </label>
+        <label>
+            Contrasena
+            <input type="password" name="password" placeholder="Contrasena inicial" required>
+        </label>
+
+        <fieldset class="checkbox-grid">
+            <legend>Especialidades</legend>
+            {% for especialidad in especialidades_disponibles %}
+                <label>
+                    <input type="checkbox" name="especialidades" value="{{ especialidad }}">
+                    {{ especialidad|capitalize }}
+                </label>
+            {% endfor %}
+        </fieldset>
+
+        <label>
+            URL de foto
+            <input type="url" name="foto_url" placeholder="https://...">
+        </label>
+        <label>
+            Universidad
+            <input type="text" name="universidad" placeholder="Universidad de...">
+        </label>
+        <label>
+            Experiencia
+            <input type="text" name="experiencia" placeholder="Ej: 6 anos en derecho laboral">
+        </label>
+        <label>
+            Biografia
+            <textarea name="bio" placeholder="Resumen del abogado, enfoque y trayectoria."></textarea>
+        </label>
+
+        <button class="button primary full" type="submit">Crear abogado</button>
+    </form>
+
+    <div class="card table-card">
+        <h2>Abogados registrados</h2>
+        <div class="table-wrap">
+            <table>
+                <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Especialidades</th>
+                    <th>Universidad</th>
+                    <th>Accion</th>
+                </tr>
+
+                {% for abogado in abogados %}
+                <tr>
+                    <td>{{ abogado['nombre'] }}</td>
+                    <td>{{ abogado['email'] }}</td>
+                    <td>{{ abogado['especialidades'] or 'Sin especialidades' }}</td>
+                    <td>{{ abogado['universidad'] or 'No informada' }}</td>
+                    <td><a class="button small" href="/abogados/{{ abogado['id'] }}/editar">Editar</a></td>
+                </tr>
+                {% endfor %}
+            </table>
+        </div>
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}Notificaciones | Lexora Legal{% endblock %}
+
+{% block content %}
+<section class="section-heading">
+    <p class="eyebrow">Centro de notificaciones</p>
+    <h1>Actividad reciente</h1>
+    <p>Aqui veras avisos por nuevas solicitudes, asignaciones de abogado y mensajes del chat.</p>
+</section>
+
+<section class="notification-list">
+    {% for notificacion in notificaciones %}
+        <article class="card notification-card">
+            <h2>{{ notificacion['titulo'] }}</h2>
+            <p>{{ notificacion['mensaje'] }}</p>
+            <div class="notification-footer">
+                <span>{{ notificacion['creado_en'] }}</span>
+                {% if notificacion['link'] %}
+                    <a class="button small" href="{{ notificacion['link'] }}">Abrir</a>
+                {% endif %}
+            </div>
+        </article>
+    {% endfor %}
+</section>
+{% endblock %}
