@@ -1,6 +1,8 @@
 (function () {
     const body = document.body;
     const unreadCount = Number(body.dataset.unreadCount || '0');
+    const notificationsUrl = body.dataset.notificationsUrl;
+    const homeUrl = body.dataset.homeUrl || '/';
     const toast = document.querySelector('[data-notification-toast]');
     const toggle = document.querySelector('[data-sound-toggle]');
     const storageKey = 'lexora_sound_enabled';
@@ -45,6 +47,14 @@
         }, 4500);
     };
 
+    const updateNotificationCounter = (count) => {
+        const link = document.querySelector('.notification-link');
+        const counter = document.querySelector('.notification-counter');
+        if (!link || !counter) return;
+        counter.textContent = count;
+        link.classList.toggle('has-alert', count > 0);
+    };
+
     updateToggleState();
 
     if (toggle) {
@@ -69,4 +79,37 @@
     }
 
     localStorage.setItem(unreadKey, String(unreadCount));
+
+    // Revisa nuevos avisos sin interrumpir el trabajo del usuario con una recarga completa.
+    if (notificationsUrl) {
+        let currentUnreadCount = unreadCount;
+        window.setInterval(async () => {
+            try {
+                const response = await fetch(notificationsUrl, { credentials: 'same-origin' });
+                if (!response.ok) return;
+                const data = await response.json();
+                const nextUnreadCount = Number(data.total || 0);
+                if (nextUnreadCount > currentUnreadCount) {
+                    showToast();
+                    if (localStorage.getItem(storageKey) === 'true') playNotificationSound();
+                }
+                currentUnreadCount = nextUnreadCount;
+                updateNotificationCounter(nextUnreadCount);
+                localStorage.setItem(unreadKey, String(nextUnreadCount));
+            } catch (error) {
+                // Si se corta la red, se conserva el contador que ya estaba visible.
+            }
+        }, 30000);
+    }
+
+    const backButton = document.querySelector('[data-go-back]');
+    if (backButton) {
+        backButton.addEventListener('click', () => {
+            if (window.history.length > 1) {
+                window.history.back();
+            } else {
+                window.location.assign(homeUrl);
+            }
+        });
+    }
 })();

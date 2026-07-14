@@ -37,7 +37,7 @@
                 <td>{{ c['abogado'] or 'Sin asignar' }}</td>
                 <td>
                     {% if c['pdf_respaldo'] %}
-                        <a class="button small" href="{{ url_for('static', filename=c['pdf_respaldo']) }}" target="_blank">Ver PDF</a>
+                        <a class="button small" href="{{ url_for('descargar_pdf_consulta', consulta_id=c['id']) }}">Descargar PDF</a>
                     {% else %}
                         Sin PDF
                     {% endif %}

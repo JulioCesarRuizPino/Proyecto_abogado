@@ -11,15 +11,22 @@
 
 <section class="notification-list">
     {% for notificacion in notificaciones %}
-        <article class="card notification-card">
+        <article class="card notification-card {% if not notificacion['leida'] %}unread{% endif %}">
             <h2>{{ notificacion['titulo'] }}</h2>
             <p>{{ notificacion['mensaje'] }}</p>
             <div class="notification-footer">
                 <span>{{ notificacion['creado_en'] }}</span>
                 {% if notificacion['link'] %}
-                    <a class="button small" href="{{ notificacion['link'] }}">Abrir</a>
+                    <form method="POST" action="{{ url_for('abrir_notificacion', notificacion_id=notificacion['id']) }}">
+                        <button class="button small" type="submit">Abrir</button>
+                    </form>
                 {% endif %}
             </div>
+        </article>
+    {% else %}
+        <article class="card notification-card">
+            <h2>Sin notificaciones por ahora</h2>
+            <p>Cuando haya actividad en tus casos, los avisos apareceran aqui.</p>
         </article>
     {% endfor %}
 </section>

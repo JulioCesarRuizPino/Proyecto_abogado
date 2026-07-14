@@ -1,29 +1,49 @@
 import os
 import textwrap
 import unicodedata
+from hmac import compare_digest
 from datetime import datetime
 from email.message import EmailMessage
 from pathlib import Path
 import smtplib
 
-from flask import Flask, flash, redirect, render_template, request, session, url_for
+from flask import Flask, abort, flash, jsonify, redirect, render_template, request, send_file, session, url_for
 from flask_mysqldb import MySQL
 from werkzeug.security import check_password_hash, generate_password_hash
 
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'secret'
-
-# CONFIG MYSQL
-app.config['MYSQL_HOST'] = 'localhost'
-app.config['MYSQL_USER'] = 'root'
-app.config['MYSQL_PASSWORD'] = 'root123'
-app.config['MYSQL_DB'] = 'asesoria_juridica'
-
-mysql = MySQL(app)
-
 BASE_DIR = Path(__file__).resolve().parent
 OUTBOX_DIR = BASE_DIR / 'emails_outbox'
-PDF_DIR = BASE_DIR / 'static' / 'case_pdfs'
+PDF_DIR = BASE_DIR / 'private' / 'case_pdfs'
+
+
+# Lee las variables locales sin reemplazar las variables definidas por el entorno.
+def load_env_file():
+    env_path = BASE_DIR / '.env'
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith('#') or '=' not in line:
+            continue
+        key, value = line.split('=', 1)
+        key = key.strip()
+        value = value.strip().strip('"').strip("'")
+        if key and key not in os.environ:
+            os.environ[key] = value
+
+
+load_env_file()
+
+# La aplicacion usa variables de entorno; los valores por defecto son solo para desarrollo local.
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-only-change-me')
+app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST', 'localhost')
+app.config['MYSQL_USER'] = os.getenv('MYSQL_USER', 'root')
+app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD', 'root123')
+app.config['MYSQL_DB'] = os.getenv('MYSQL_DB', 'asesoria_juridica')
+
+mysql = MySQL(app)
 
 ESPECIALIDADES = {
     'familia': [
@@ -57,43 +77,26 @@ ESPECIALIDADES = {
 }
 
 
-def load_env_file():
-    env_path = BASE_DIR / '.env'
-    if not env_path.exists():
-        return
-
-    for raw_line in env_path.read_text(encoding='utf-8').splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith('#') or '=' not in line:
-            continue
-        key, value = line.split('=', 1)
-        key = key.strip()
-        value = value.strip().strip('"').strip("'")
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-load_env_file()
-
-
+# Indica si la sesion actual pertenece a un usuario autenticado.
 def login_required():
+    # Centraliza la comprobacion para no repetirla en cada ruta privada.
     return 'user_id' in session
 
 
+# Comprueba que el usuario conectado sea el dueno del bufete.
 def owner_required():
     return login_required() and session.get('tipo') == 'dueno'
 
 
+# Convierte una contrasena en un hash seguro antes de guardarla.
 def hash_password(password):
     return generate_password_hash(password)
 
 
+# Verifica la contrasena ingresada mediante el hash almacenado.
 def verify_password(stored_password, provided_password):
     if not stored_password:
         return False
-
-    if stored_password == provided_password:
-        return True
 
     try:
         return check_password_hash(stored_password, provided_password)
@@ -101,6 +104,12 @@ def verify_password(stored_password, provided_password):
         return False
 
 
+# Permite actualizar una cuenta heredada en texto plano inmediatamente tras autenticarse.
+def is_legacy_plaintext_password(stored_password, provided_password):
+    return bool(stored_password) and compare_digest(stored_password, provided_password)
+
+
+# Quita tildes y unifica mayusculas para comparar palabras sin diferencias de formato.
 def normalizar_texto(texto):
     texto = texto or ''
     texto = unicodedata.normalize('NFKD', texto)
@@ -108,6 +117,7 @@ def normalizar_texto(texto):
     return texto.lower()
 
 
+# Revisa si una columna existe en la base de datos.
 def detect_column(table_name, column_name):
     cur = mysql.connection.cursor()
     cur.execute(
@@ -121,6 +131,7 @@ def detect_column(table_name, column_name):
     return cur.fetchone()[0] > 0
 
 
+# Revisa si una tabla existe antes de usar una funcion que depende de ella.
 def table_exists(table_name):
     cur = mysql.connection.cursor()
     cur.execute(
@@ -134,6 +145,7 @@ def table_exists(table_name):
     return cur.fetchone()[0] > 0
 
 
+# Ejecuta una consulta y devuelve el primer resultado como diccionario.
 def fetchone_dict(query, params=()):
     cur = mysql.connection.cursor()
     cur.execute(query, params)
@@ -144,6 +156,7 @@ def fetchone_dict(query, params=()):
     return dict(zip(columns, row))
 
 
+# Ejecuta una consulta y devuelve todos sus resultados como diccionarios.
 def fetchall_dict(query, params=()):
     cur = mysql.connection.cursor()
     cur.execute(query, params)
@@ -152,6 +165,7 @@ def fetchall_dict(query, params=()):
     return [dict(zip(columns, row)) for row in rows]
 
 
+# Obtiene los perfiles de todos los usuarios registrados como abogados.
 def get_abogados():
     return fetchall_dict(
         """
@@ -172,6 +186,7 @@ def get_abogados():
     )
 
 
+# Busca un caso junto con los datos de su cliente y abogado asignado.
 def get_consulta_por_id(consulta_id):
     return fetchone_dict(
         """
@@ -197,6 +212,7 @@ def get_consulta_por_id(consulta_id):
     )
 
 
+# Decide si el usuario actual tiene permiso para abrir un caso y su chat.
 def usuario_puede_ver_consulta(consulta):
     if not consulta or not login_required():
         return False
@@ -209,7 +225,9 @@ def usuario_puede_ver_consulta(consulta):
     return False
 
 
+# Analiza el titulo y la descripcion para identificar el area legal mas probable.
 def detectar_especialidad(titulo, descripcion):
+    # Da mas peso al titulo porque normalmente resume mejor el problema legal.
     titulo_normalizado = normalizar_texto(titulo)
     descripcion_normalizada = normalizar_texto(descripcion)
     puntajes = {}
@@ -223,6 +241,7 @@ def detectar_especialidad(titulo, descripcion):
     return especialidad if puntaje > 0 else None
 
 
+# Elige el abogado de la especialidad indicada que tenga menos casos asignados.
 def elegir_abogado_para_especialidad(especialidad):
     if not especialidad:
         return None
@@ -253,6 +272,7 @@ def elegir_abogado_para_especialidad(especialidad):
     return mejores_coincidencias[0][1]
 
 
+# Escapa caracteres especiales para que se puedan escribir correctamente en el PDF.
 def escape_pdf_text(texto):
     return (
         texto.replace('\\', '\\\\')
@@ -261,10 +281,12 @@ def escape_pdf_text(texto):
     )
 
 
+# Crea la instruccion de PDF que dibuja una linea.
 def pdf_line(x1, y1, x2, y2, width=1):
     return f'{width} w {x1} {y1} m {x2} {y2} l S'
 
 
+# Crea la instruccion de PDF que dibuja un rectangulo con relleno o borde.
 def pdf_rect(x, y, width, height, fill_rgb=None, stroke_rgb=None, line_width=1):
     commands = []
     if fill_rgb:
@@ -278,6 +300,7 @@ def pdf_rect(x, y, width, height, fill_rgb=None, stroke_rgb=None, line_width=1):
     return '\n'.join(commands)
 
 
+# Crea un bloque de texto con formato y posicion dentro del PDF.
 def pdf_text_block(lines, x, y, font='F1', size=11, leading=14, color=(0.18, 0.22, 0.2)):
     commands = [
         'BT',
@@ -293,11 +316,14 @@ def pdf_text_block(lines, x, y, font='F1', size=11, leading=14, color=(0.18, 0.2
     return '\n'.join(commands)
 
 
+# Divide un texto largo en lineas que caben dentro del ancho del PDF.
 def wrap_pdf_text(texto, width):
     return textwrap.wrap(texto or '', width=width) or ['Sin descripcion']
 
 
+# Genera el archivo PDF que deja respaldo formal de una consulta.
 def generate_case_pdf(consulta):
+    # Genera un PDF sencillo que deja respaldo del caso al momento de crearlo.
     PDF_DIR.mkdir(parents=True, exist_ok=True)
     filename = f'consulta_{consulta["id"]}.pdf'
     pdf_path = PDF_DIR / filename
@@ -373,7 +399,16 @@ def generate_case_pdf(consulta):
     return f'case_pdfs/{filename}'
 
 
+# Obtiene el PDF privado por su nombre, sin aceptar rutas controladas por la base de datos.
+def get_private_pdf_path(pdf_reference):
+    if not pdf_reference:
+        return None
+    return PDF_DIR / Path(pdf_reference).name
+
+
+# Envia un correo por SMTP o lo guarda localmente cuando el envio no esta configurado.
 def send_email_with_fallback(destinatario, asunto, cuerpo, attachment_paths=None):
+    # Si no hay SMTP disponible, deja el correo en la bandeja local para no perder el aviso.
     attachment_paths = attachment_paths or []
     smtp_host = os.getenv('SMTP_HOST')
     smtp_port = int(os.getenv('SMTP_PORT', '587'))
@@ -388,8 +423,8 @@ def send_email_with_fallback(destinatario, asunto, cuerpo, attachment_paths=None
     message.set_content(cuerpo)
 
     for attachment_path in attachment_paths:
-        file_path = BASE_DIR / attachment_path
-        if file_path.exists():
+        file_path = get_private_pdf_path(attachment_path)
+        if file_path and file_path.exists():
             message.add_attachment(
                 file_path.read_bytes(),
                 maintype='application',
@@ -423,7 +458,9 @@ def send_email_with_fallback(destinatario, asunto, cuerpo, attachment_paths=None
         return False
 
 
+# Crea un aviso interno asociado a un usuario y, opcionalmente, a una vista del sistema.
 def create_notification(user_id, titulo, mensaje, link=''):
+    # Guarda el aviso interno solo cuando la migracion de notificaciones esta instalada.
     if not table_exists('notificaciones'):
         return
     cur = mysql.connection.cursor()
@@ -437,6 +474,7 @@ def create_notification(user_id, titulo, mensaje, link=''):
     mysql.connection.commit()
 
 
+# Avisa al cliente que su solicitud fue registrada y envia su comprobante por correo.
 def notify_case_created(consulta):
     attachment = [consulta['pdf_respaldo']] if consulta['pdf_respaldo'] else []
     create_notification(
@@ -458,6 +496,7 @@ def notify_case_created(consulta):
     )
 
 
+# Avisa al cliente y al abogado cuando un caso recibe una asignacion.
 def notify_assignment(consulta, automatico=False):
     if not consulta['abogado_id']:
         return
@@ -498,8 +537,10 @@ def notify_assignment(consulta, automatico=False):
     )
 
 
+# Comparte datos comunes con todas las plantillas, como especialidades y avisos pendientes.
 @app.context_processor
 def inject_globals():
+    # Estos datos se comparten con todas las plantillas, incluido el contador del menu.
     unread_count = 0
     if login_required() and table_exists('notificaciones'):
         row = fetchone_dict(
@@ -515,6 +556,7 @@ def inject_globals():
     }
 
 
+# Ruta publica de inicio con abogados destacados.
 @app.route('/')
 def home():
     abogados = get_abogados()
@@ -522,12 +564,14 @@ def home():
     return render_template('home.html', destacados=destacados)
 
 
+# Ruta publica que muestra el equipo legal completo.
 @app.route('/abogados/publicos')
 def abogados_publicos():
     abogados = get_abogados()
     return render_template('abogados_publicos.html', abogados=abogados)
 
 
+# Ruta de configuracion inicial para crear al dueno del bufete.
 @app.route('/crear_dueno', methods=['GET', 'POST'])
 def crear_dueno():
     cur = mysql.connection.cursor()
@@ -554,6 +598,7 @@ def crear_dueno():
     return render_template('crear_dueno.html')
 
 
+# Ruta para registrar una cuenta de cliente o abogado.
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
@@ -594,6 +639,7 @@ def register():
     return render_template('register.html')
 
 
+# Ruta que valida credenciales e inicia la sesion del usuario.
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -604,12 +650,14 @@ def login():
         cur.execute("SELECT * FROM usuarios WHERE email=%s", (email,))
         user = cur.fetchone()
 
-        if user and verify_password(user[3], password):
+        password_is_hashed = bool(user) and verify_password(user[3], password)
+        password_is_legacy = bool(user) and not password_is_hashed and is_legacy_plaintext_password(user[3], password)
+        if password_is_hashed or password_is_legacy:
             session['user_id'] = user[0]
             session['tipo'] = user[4]
             session['nombre'] = user[1]
 
-            if user[3] == password:
+            if password_is_legacy:
                 cur.execute(
                     "UPDATE usuarios SET password = %s WHERE id = %s",
                     (hash_password(password), user[0])
@@ -623,6 +671,7 @@ def login():
     return render_template('login.html')
 
 
+# Ruta privada que muestra las acciones disponibles segun el rol.
 @app.route('/dashboard')
 def dashboard():
     if not login_required():
@@ -631,12 +680,14 @@ def dashboard():
     return render_template('dashboard.html')
 
 
+# Ruta que cierra la sesion activa y vuelve al acceso.
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/login')
 
 
+# Ruta exclusiva del dueno para crear y administrar abogados.
 @app.route('/abogados', methods=['GET', 'POST'])
 def gestionar_abogados():
     if not owner_required():
@@ -670,6 +721,7 @@ def gestionar_abogados():
     return render_template('abogados.html', abogados=abogados)
 
 
+# Ruta exclusiva del dueno para editar un perfil de abogado.
 @app.route('/abogados/<int:abogado_id>/editar', methods=['GET', 'POST'])
 def editar_abogado(abogado_id):
     if not owner_required():
@@ -729,6 +781,7 @@ def editar_abogado(abogado_id):
     return render_template('editar_abogado.html', abogado=abogado)
 
 
+# Ruta donde un cliente crea un caso y recibe una asignacion automatica si es posible.
 @app.route('/crear_consulta', methods=['GET', 'POST'])
 def crear_consulta():
     if not login_required():
@@ -776,6 +829,7 @@ def crear_consulta():
     return render_template('crear_consulta.html')
 
 
+# Ruta que lista los casos visibles para el usuario segun su rol.
 @app.route('/consultas')
 def ver_consultas():
     if not login_required():
@@ -817,6 +871,29 @@ def ver_consultas():
     return render_template('consultas.html', consultas=consultas, abogados=abogados)
 
 
+# Ruta protegida para descargar el respaldo PDF de un caso autorizado.
+@app.route('/consultas/<int:consulta_id>/pdf')
+def descargar_pdf_consulta(consulta_id):
+    if not login_required():
+        return redirect('/login')
+
+    consulta = get_consulta_por_id(consulta_id)
+    if not usuario_puede_ver_consulta(consulta):
+        abort(403)
+
+    pdf_path = get_private_pdf_path(consulta['pdf_respaldo'])
+    if not pdf_path or not pdf_path.is_file():
+        abort(404)
+
+    return send_file(
+        pdf_path,
+        mimetype='application/pdf',
+        as_attachment=True,
+        download_name=pdf_path.name
+    )
+
+
+# Ruta exclusiva del dueno para cambiar el abogado asignado a un caso.
 @app.route('/consultas/<int:consulta_id>/asignar', methods=['POST'])
 def asignar_consulta(consulta_id):
     if not owner_required():
@@ -838,6 +915,7 @@ def asignar_consulta(consulta_id):
     return redirect('/consultas')
 
 
+# Ruta del chat privado del caso: muestra mensajes y permite enviar uno nuevo.
 @app.route('/consultas/<int:consulta_id>/chat', methods=['GET', 'POST'])
 def chat_consulta(consulta_id):
     if not login_required():
@@ -909,6 +987,7 @@ def chat_consulta(consulta_id):
     return render_template('chat.html', consulta=consulta, mensajes=mensajes)
 
 
+# Ruta que muestra los avisos internos del usuario conectado.
 @app.route('/notificaciones')
 def ver_notificaciones():
     if not login_required():
@@ -917,13 +996,6 @@ def ver_notificaciones():
     if not table_exists('notificaciones'):
         flash('La tabla de notificaciones aun no existe. Ejecuta la migracion.')
         return redirect('/dashboard')
-
-    cur = mysql.connection.cursor()
-    cur.execute(
-        "UPDATE notificaciones SET leida = 1 WHERE usuario_id = %s AND leida = 0",
-        (session['user_id'],)
-    )
-    mysql.connection.commit()
 
     notificaciones = fetchall_dict(
         """
@@ -937,5 +1009,40 @@ def ver_notificaciones():
     return render_template('notificaciones.html', notificaciones=notificaciones)
 
 
+# Ruta que marca un aviso como leido y lleva al enlace relacionado.
+@app.route('/notificaciones/<int:notificacion_id>/leer', methods=['POST'])
+def abrir_notificacion(notificacion_id):
+    if not login_required():
+        return redirect('/login')
+
+    notificacion = fetchone_dict(
+        "SELECT link FROM notificaciones WHERE id = %s AND usuario_id = %s",
+        (notificacion_id, session['user_id'])
+    )
+    if not notificacion:
+        flash('La notificacion no existe o no te pertenece.')
+        return redirect(url_for('ver_notificaciones'))
+
+    # Solo se marca como leida cuando el usuario abre ese aviso.
+    cur = mysql.connection.cursor()
+    cur.execute("UPDATE notificaciones SET leida = 1 WHERE id = %s", (notificacion_id,))
+    mysql.connection.commit()
+    return redirect(notificacion['link'] or url_for('ver_notificaciones'))
+
+
+# Ruta de API que devuelve el total de avisos pendientes para actualizar el menu.
+@app.route('/api/notificaciones/no-leidas')
+def notificaciones_no_leidas():
+    # El navegador consulta este dato periodicamente para actualizar el aviso sin recargar.
+    if not login_required() or not table_exists('notificaciones'):
+        return jsonify({'total': 0})
+
+    row = fetchone_dict(
+        "SELECT COUNT(*) AS total FROM notificaciones WHERE usuario_id = %s AND leida = 0",
+        (session['user_id'],)
+    )
+    return jsonify({'total': row['total']})
+
+
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=os.getenv('FLASK_DEBUG', 'false').lower() in ('1', 'true', 'yes', 'on'))

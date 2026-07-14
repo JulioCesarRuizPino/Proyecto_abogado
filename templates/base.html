@@ -6,7 +6,7 @@
     <title>{% block title %}Lexora Legal{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-<body data-unread-count="{{ unread_notifications }}">
+<body data-unread-count="{{ unread_notifications }}" data-notifications-url="{{ url_for('notificaciones_no_leidas') }}" data-home-url="{{ url_for('home') }}">
     <header class="site-header">
         <a class="brand" href="/">
             <span class="brand-mark">L</span>
@@ -38,6 +38,9 @@
     </header>
 
     <main class="page">
+        {% if request.endpoint != 'home' %}
+            <button class="back-button" type="button" data-go-back>← Volver al paso anterior</button>
+        {% endif %}
         {% with messages = get_flashed_messages() %}
             {% if messages %}
                 <section class="flash-stack">
