@@ -38,8 +38,8 @@
     </header>
 
     <main class="page">
-        {% if request.endpoint != 'home' %}
-            <button class="back-button" type="button" data-go-back>← Volver al paso anterior</button>
+        {% if request.endpoint in ('crear_consulta', 'chat_consulta') %}
+            <a class="back-button" href="{{ url_for('ver_consultas') }}">&larr; Volver a casos</a>
         {% endif %}
         {% with messages = get_flashed_messages() %}
             {% if messages %}
