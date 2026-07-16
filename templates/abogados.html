@@ -11,6 +11,7 @@
 
 <section class="split-layout">
     <form class="card form-card" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Crear abogado</h2>
         <label>
             Nombre
@@ -22,7 +23,7 @@
         </label>
         <label>
             Contrasena
-            <input type="password" name="password" placeholder="Contrasena inicial" required>
+            <input type="password" name="password" placeholder="Minimo 10 caracteres" minlength="10" autocomplete="new-password" required>
         </label>
 
         <fieldset class="checkbox-grid">

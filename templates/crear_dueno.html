@@ -11,6 +11,7 @@
     </div>
 
     <form class="card form-card" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Super usuario</h2>
         <label>
             Nombre
@@ -22,7 +23,7 @@
         </label>
         <label>
             Contrasena
-            <input type="password" name="password" placeholder="Contrasena segura" required>
+            <input type="password" name="password" placeholder="Minimo 10 caracteres" minlength="10" autocomplete="new-password" required>
         </label>
         <button class="button primary full" type="submit">Crear dueno</button>
     </form>

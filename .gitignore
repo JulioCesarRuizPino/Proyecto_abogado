@@ -1,2 +1,10 @@
+# Secretos, respaldos de casos y correos pueden contener datos personales: nunca se versionan.
 .env
+.env.*
+!.env.example
 private/
+emails_outbox/*
+!emails_outbox/.gitkeep
+venv/
+__pycache__/
+*.pyc

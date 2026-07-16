@@ -18,6 +18,7 @@
                 <span>{{ notificacion['creado_en'] }}</span>
                 {% if notificacion['link'] %}
                     <form method="POST" action="{{ url_for('abrir_notificacion', notificacion_id=notificacion['id']) }}">
+                        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                         <button class="button small" type="submit">Abrir</button>
                     </form>
                 {% endif %}

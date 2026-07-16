@@ -10,7 +10,8 @@
         <p>El sistema analizara el texto y buscara un abogado con la especialidad mas cercana.</p>
     </div>
 
-    <form class="card form-card wide" method="POST">
+    <form class="card form-card wide" method="POST" data-case-form>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Informacion del caso</h2>
         <label>
             Titulo
@@ -20,7 +21,16 @@
             Descripcion
             <textarea name="descripcion" placeholder="Cuenta que ocurrio, fechas relevantes, documentos disponibles y que necesitas resolver." required></textarea>
         </label>
-        <button class="button primary full" type="submit">Enviar consulta</button>
+        <button class="button primary full" type="submit" data-submit-consulta>Enviar consulta</button>
     </form>
 </section>
+
+<div class="loading-overlay" data-consulta-loading hidden role="status" aria-live="assertive">
+    <div class="loading-dialog">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <h2>Enviando tu consulta</h2>
+        <p>Estamos registrando el caso, buscando un especialista y preparando su respaldo.</p>
+        <span class="loading-note">No cierres esta ventana.</span>
+    </div>
+</div>
 {% endblock %}

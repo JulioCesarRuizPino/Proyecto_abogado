@@ -6,7 +6,7 @@
     <title>{% block title %}Lexora Legal{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
 </head>
-<body data-unread-count="{{ unread_notifications }}" data-notifications-url="{{ url_for('notificaciones_no_leidas') }}" data-home-url="{{ url_for('home') }}">
+<body data-unread-count="{{ unread_notifications }}" data-notifications-enabled="{{ 'true' if session.get('user_id') else 'false' }}" data-current-user="{{ session.get('user_id', '') }}" data-notifications-url="{{ url_for('notificaciones_no_leidas') if session.get('user_id') else '' }}" data-home-url="{{ url_for('home') }}">
     <header class="site-header">
         <a class="brand" href="/">
             <span class="brand-mark">L</span>
@@ -16,20 +16,27 @@
         <nav class="nav">
             <a href="/abogados/publicos">Equipo legal</a>
             {% if session.get('user_id') %}
-                <a href="/dashboard">Panel</a>
-                <a href="/consultas">Casos</a>
-                <a class="notification-link {% if unread_notifications %}has-alert{% endif %}" href="/notificaciones">
-                    Notificaciones
-                    <span class="notification-counter">{{ unread_notifications }}</span>
-                </a>
+                <div class="nav-group" aria-label="Navegacion principal">
+                    <a class="{% if request.endpoint == 'dashboard' %}is-active{% endif %}" href="/dashboard">Inicio</a>
+                    <a class="{% if request.endpoint in ('ver_consultas', 'chat_consulta') %}is-active{% endif %}" href="/consultas">
+                        {% if session.get('tipo') == 'cliente' %}Mis casos{% else %}Casos{% endif %}
+                    </a>
+                </div>
                 {% if session.get('tipo') == 'dueno' %}
-                    <a href="/abogados">Abogados</a>
+                    <a class="{% if request.endpoint in ('gestionar_abogados', 'editar_abogado') %}is-active{% endif %}" href="/abogados">Equipo</a>
                 {% endif %}
                 {% if session.get('tipo') == 'cliente' %}
-                    <a href="/crear_consulta">Nueva consulta</a>
+                    <a class="nav-primary {% if request.endpoint == 'crear_consulta' %}is-active{% endif %}" href="/crear_consulta">+ Nueva consulta</a>
                 {% endif %}
-                <button class="sound-toggle" type="button" data-sound-toggle>Activar sonido</button>
-                <a class="nav-pill" href="/logout">Salir</a>
+                <a class="notification-link {% if unread_notifications %}has-alert{% endif %}" href="/notificaciones" aria-label="Notificaciones">
+                    Avisos <span class="notification-counter">{{ unread_notifications }}</span>
+                </a>
+                <div class="nav-user" aria-label="Sesion actual">
+                    <strong>{{ session.get('nombre') }}</strong>
+                    <small>{{ session.get('tipo')|capitalize }}</small>
+                </div>
+                <button class="sound-toggle" type="button" data-sound-toggle aria-label="Activar o desactivar sonido">Sonido</button>
+                <a class="nav-exit" href="/logout">Salir</a>
             {% else %}
                 <a href="/login">Ingresar</a>
                 <a class="nav-pill" href="/register">Registrarse</a>
@@ -54,13 +61,15 @@
         {% block content %}{% endblock %}
     </main>
 
-    <div class="floating-toast" data-notification-toast hidden>
-        <div class="toast-dot"></div>
-        <div>
-            <strong>Nueva notificacion</strong>
-            <p>Tienes actividad nueva en tu panel.</p>
+    {% if session.get('user_id') %}
+        <div class="floating-toast" data-notification-toast hidden>
+            <div class="toast-dot"></div>
+            <div>
+                <strong>Nueva notificacion</strong>
+                <p>Tienes actividad nueva en tu panel.</p>
+            </div>
         </div>
-    </div>
+    {% endif %}
 
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>

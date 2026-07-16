@@ -53,6 +53,7 @@
                 {% if session['tipo'] == 'dueno' %}
                     <td>
                         <form class="inline-form" method="POST" action="/consultas/{{ c['id'] }}/asignar">
+                            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                             <select name="abogado_id">
                                 <option value="">Sin asignar</option>
                                 {% for abogado in abogados %}

@@ -11,6 +11,7 @@
     </div>
 
     <form class="card form-card" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Iniciar sesion</h2>
         <label>
             Email
@@ -18,7 +19,7 @@
         </label>
         <label>
             Contrasena
-            <input type="password" name="password" placeholder="Tu contrasena" required>
+            <input type="password" name="password" placeholder="Tu contrasena" autocomplete="current-password" required>
         </label>
         <button class="button primary full" type="submit">Ingresar</button>
     </form>

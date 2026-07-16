@@ -1,12 +1,32 @@
 (function () {
     const body = document.body;
     const unreadCount = Number(body.dataset.unreadCount || '0');
+    const notificationsEnabled = body.dataset.notificationsEnabled === 'true';
     const notificationsUrl = body.dataset.notificationsUrl;
+    const currentUser = body.dataset.currentUser;
     const homeUrl = body.dataset.homeUrl || '/';
     const toast = document.querySelector('[data-notification-toast]');
     const toggle = document.querySelector('[data-sound-toggle]');
     const storageKey = 'lexora_sound_enabled';
-    const unreadKey = 'lexora_last_unread_count';
+    const unreadKey = `lexora_last_unread_count_${currentUser}`;
+
+    // En una pagina publica no se consulta ni se muestran avisos de una sesion anterior.
+    if (!notificationsEnabled) {
+        const form = document.querySelector('[data-case-form]');
+        if (form) {
+            form.addEventListener('submit', () => {
+                if (!form.checkValidity()) return;
+                const overlay = document.querySelector('[data-consulta-loading]');
+                const button = form.querySelector('[data-submit-consulta]');
+                if (overlay) overlay.hidden = false;
+                if (button) {
+                    button.disabled = true;
+                    button.textContent = 'Enviando...';
+                }
+            });
+        }
+        return;
+    }
 
     const updateToggleState = () => {
         if (!toggle) return;
@@ -109,6 +129,20 @@
                 window.history.back();
             } else {
                 window.location.assign(homeUrl);
+            }
+        });
+    }
+
+    const caseForm = document.querySelector('[data-case-form]');
+    if (caseForm) {
+        caseForm.addEventListener('submit', () => {
+            if (!caseForm.checkValidity()) return;
+            const overlay = document.querySelector('[data-consulta-loading]');
+            const button = caseForm.querySelector('[data-submit-consulta]');
+            if (overlay) overlay.hidden = false;
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Enviando...';
             }
         });
     }

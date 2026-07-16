@@ -1,4 +1,6 @@
 import os
+import re
+import secrets
 import textwrap
 import unicodedata
 from hmac import compare_digest
@@ -35,13 +37,17 @@ def load_env_file():
 
 load_env_file()
 
-# La aplicacion usa variables de entorno; los valores por defecto son solo para desarrollo local.
+# La aplicacion toma las credenciales desde el entorno. Nunca se dejan claves reales en el codigo.
 app = Flask(__name__)
-app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-only-change-me')
+app.config['SECRET_KEY'] = os.getenv('SECRET_KEY') or secrets.token_urlsafe(32)
 app.config['MYSQL_HOST'] = os.getenv('MYSQL_HOST', 'localhost')
 app.config['MYSQL_USER'] = os.getenv('MYSQL_USER', 'root')
-app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD', 'root123')
+app.config['MYSQL_PASSWORD'] = os.getenv('MYSQL_PASSWORD', '')
 app.config['MYSQL_DB'] = os.getenv('MYSQL_DB', 'asesoria_juridica')
+# Estas banderas reducen la exposicion de la cookie de sesion. En produccion se debe servir por HTTPS.
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+app.config['SESSION_COOKIE_SECURE'] = os.getenv('SESSION_COOKIE_SECURE', 'false').lower() in ('1', 'true', 'yes', 'on')
 
 mysql = MySQL(app)
 
@@ -86,6 +92,35 @@ def login_required():
 # Comprueba que el usuario conectado sea el dueno del bufete.
 def owner_required():
     return login_required() and session.get('tipo') == 'dueno'
+
+
+# Un token por sesion evita que otro sitio pueda enviar formularios en nombre del usuario.
+def get_csrf_token():
+    if 'csrf_token' not in session:
+        session['csrf_token'] = secrets.token_urlsafe(32)
+    return session['csrf_token']
+
+
+@app.before_request
+def protect_post_requests():
+    """Rechaza todo POST cuyo token no coincida con el de la sesion activa."""
+    if request.method == 'POST':
+        submitted_token = request.form.get('csrf_token', '')
+        if not compare_digest(submitted_token, get_csrf_token()):
+            abort(400, description='Formulario invalido o expirado. Vuelve a intentarlo.')
+
+
+# Valida los datos basicos de cuenta antes de escribirlos en la base de datos.
+def validate_account_data(nombre, email, password):
+    nombre = (nombre or '').strip()
+    email = (email or '').strip().lower()
+    if not 2 <= len(nombre) <= 100:
+        return None, None, 'Ingresa un nombre de entre 2 y 100 caracteres.'
+    if not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+        return None, None, 'Ingresa un correo electronico valido.'
+    if len(password or '') < 10:
+        return None, None, 'La contrasena debe tener al menos 10 caracteres.'
+    return nombre, email, None
 
 
 # Convierte una contrasena en un hash seguro antes de guardarla.
@@ -553,6 +588,7 @@ def inject_globals():
         'especialidades_disponibles': ESPECIALIDADES.keys(),
         'unread_notifications': unread_count,
         'sound_notifications_available': login_required(),
+        'csrf_token': get_csrf_token(),
     }
 
 
@@ -583,8 +619,12 @@ def crear_dueno():
         return redirect('/login')
 
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        email = request.form['email']
+        nombre, email, error = validate_account_data(
+            request.form.get('nombre'), request.form.get('email'), request.form.get('password')
+        )
+        if error:
+            flash(error)
+            return redirect('/crear_dueno')
         password = request.form['password']
 
         cur.execute(
@@ -598,39 +638,32 @@ def crear_dueno():
     return render_template('crear_dueno.html')
 
 
-# Ruta para registrar una cuenta de cliente o abogado.
+# Ruta publica: por diseno solo crea cuentas de cliente.
 @app.route('/register', methods=['GET', 'POST'])
 def register():
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        email = request.form['email']
+        nombre, email, error = validate_account_data(
+            request.form.get('nombre'), request.form.get('email'), request.form.get('password')
+        )
+        if error:
+            flash(error)
+            return redirect('/register')
         password = request.form['password']
-        tipo = request.form['tipo']
-
-        if tipo not in ('cliente', 'abogado'):
-            return "Tipo de usuario no permitido"
-
-        especialidades = ''
-        foto_url = ''
-        bio = ''
-        universidad = ''
-        experiencia = ''
-
-        if tipo == 'abogado':
-            especialidades = ', '.join(request.form.getlist('especialidades'))
-            foto_url = request.form.get('foto_url', '')
-            bio = request.form.get('bio', '')
-            universidad = request.form.get('universidad', '')
-            experiencia = request.form.get('experiencia', '')
+        # El rol nunca se acepta desde el navegador: evita que alguien se autoasigne abogado.
+        tipo = 'cliente'
 
         cur = mysql.connection.cursor()
+        cur.execute("SELECT id FROM usuarios WHERE email = %s", (email,))
+        if cur.fetchone():
+            flash('Ya existe una cuenta con ese correo electronico.')
+            return redirect('/register')
         cur.execute(
             """
             INSERT INTO usuarios
                 (nombre, email, password, tipo, especialidades, foto_url, bio, universidad, experiencia)
             VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (nombre, email, hash_password(password), tipo, especialidades, foto_url, bio, universidad, experiencia)
+            (nombre, email, hash_password(password), tipo, '', '', '', '', '')
         )
         mysql.connection.commit()
         flash('Usuario registrado correctamente')
@@ -643,8 +676,8 @@ def register():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
-        email = request.form['email']
-        password = request.form['password']
+        email = request.form.get('email', '').strip().lower()
+        password = request.form.get('password', '')
 
         cur = mysql.connection.cursor()
         cur.execute("SELECT * FROM usuarios WHERE email=%s", (email,))
@@ -653,6 +686,8 @@ def login():
         password_is_hashed = bool(user) and verify_password(user[3], password)
         password_is_legacy = bool(user) and not password_is_hashed and is_legacy_plaintext_password(user[3], password)
         if password_is_hashed or password_is_legacy:
+            # Limpiar la sesion antes de autenticar evita conservar datos de otra cuenta.
+            session.clear()
             session['user_id'] = user[0]
             session['tipo'] = user[4]
             session['nombre'] = user[1]
@@ -696,8 +731,12 @@ def gestionar_abogados():
     cur = mysql.connection.cursor()
 
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        email = request.form['email']
+        nombre, email, error = validate_account_data(
+            request.form.get('nombre'), request.form.get('email'), request.form.get('password')
+        )
+        if error:
+            flash(error)
+            return redirect('/abogados')
         password = request.form['password']
         especialidades = ', '.join(request.form.getlist('especialidades'))
         foto_url = request.form.get('foto_url', '')
@@ -744,9 +783,15 @@ def editar_abogado(abogado_id):
         return redirect('/abogados')
 
     if request.method == 'POST':
-        nombre = request.form['nombre']
-        email = request.form['email']
+        nombre = request.form.get('nombre', '').strip()
+        email = request.form.get('email', '').strip().lower()
         password = request.form.get('password', '')
+        if not 2 <= len(nombre) <= 100 or not re.fullmatch(r'[^@\s]+@[^@\s]+\.[^@\s]+', email):
+            flash('Revisa el nombre y el correo electronico.')
+            return redirect(url_for('editar_abogado', abogado_id=abogado_id))
+        if password and len(password) < 10:
+            flash('La contrasena debe tener al menos 10 caracteres.')
+            return redirect(url_for('editar_abogado', abogado_id=abogado_id))
         especialidades = ', '.join(request.form.getlist('especialidades'))
         foto_url = request.form.get('foto_url', '')
         bio = request.form.get('bio', '')
@@ -786,10 +831,16 @@ def editar_abogado(abogado_id):
 def crear_consulta():
     if not login_required():
         return redirect('/login')
+    # Solo clientes pueden abrir casos; abogados y dueno solo los gestionan.
+    if session.get('tipo') != 'cliente':
+        abort(403)
 
     if request.method == 'POST':
-        titulo = request.form['titulo']
-        descripcion = request.form['descripcion']
+        titulo = request.form.get('titulo', '').strip()
+        descripcion = request.form.get('descripcion', '').strip()
+        if not titulo or not descripcion or len(titulo) > 200:
+            flash('Completa el titulo y la descripcion del caso.')
+            return redirect('/crear_consulta')
         usuario_id = session['user_id']
         especialidad_detectada = detectar_especialidad(titulo, descripcion)
         abogado_id = elegir_abogado_para_especialidad(especialidad_detectada)
@@ -899,7 +950,11 @@ def asignar_consulta(consulta_id):
     if not owner_required():
         return redirect('/dashboard')
 
-    abogado_id = request.form['abogado_id'] or None
+    abogado_id = request.form.get('abogado_id') or None
+    if abogado_id:
+        abogado = fetchone_dict("SELECT id FROM usuarios WHERE id = %s AND tipo = %s", (abogado_id, 'abogado'))
+        if not abogado:
+            abort(400, description='El profesional seleccionado no es valido.')
     cur = mysql.connection.cursor()
     cur.execute(
         "UPDATE consultas SET abogado_id = %s WHERE id = %s",
@@ -927,7 +982,10 @@ def chat_consulta(consulta_id):
         return redirect('/consultas')
 
     if request.method == 'POST':
-        mensaje = request.form['mensaje'].strip()
+        # El dueno puede supervisar el chat, pero no intervenir en conversaciones confidenciales.
+        if session.get('tipo') not in ('cliente', 'abogado'):
+            abort(403)
+        mensaje = request.form.get('mensaje', '').strip()
         if mensaje:
             cur = mysql.connection.cursor()
             cur.execute(

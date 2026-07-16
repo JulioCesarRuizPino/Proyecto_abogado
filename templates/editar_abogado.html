@@ -10,6 +10,7 @@
 </section>
 
 <form class="card form-card wide-form" method="POST">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <label>
         Nombre
         <input type="text" name="nombre" value="{{ abogado['nombre'] }}" required>
@@ -20,7 +21,7 @@
     </label>
     <label>
         Nueva contrasena
-        <input type="password" name="password" placeholder="Solo si quieres cambiarla">
+        <input type="password" name="password" placeholder="Minimo 10 caracteres" minlength="10" autocomplete="new-password">
     </label>
 
     <fieldset class="checkbox-grid">

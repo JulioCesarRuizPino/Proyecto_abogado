@@ -23,6 +23,7 @@
     </div>
 
     <form class="card form-card" method="POST">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <h2>Enviar mensaje</h2>
         <label>
             Mensaje
