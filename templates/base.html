@@ -71,6 +71,15 @@
         </div>
     {% endif %}
 
+    <div class="loading-overlay" data-global-loading hidden role="status" aria-live="assertive">
+        <div class="loading-dialog">
+            <span class="loading-spinner" aria-hidden="true"></span>
+            <h2 data-loading-title>Guardando cambios</h2>
+            <p data-loading-description>Estamos procesando tu solicitud. Esto puede tardar unos segundos.</p>
+            <span class="loading-note">No cierres esta ventana.</span>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>

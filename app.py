@@ -477,6 +477,8 @@ def send_email_with_fallback(destinatario, asunto, cuerpo, attachment_paths=None
             server.send_message(message)
         return True
     except Exception:
+        # Deja el detalle en el registro del servidor para diagnosticar SMTP sin exponerlo al usuario.
+        app.logger.exception('No fue posible enviar el correo a %s; se guardo en la bandeja local.', destinatario)
         OUTBOX_DIR.mkdir(parents=True, exist_ok=True)
         timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
         outbox_file = OUTBOX_DIR / f'{timestamp}_{destinatario.replace("@", "_at_")}.eml'
@@ -569,6 +571,24 @@ def notify_assignment(consulta, automatico=False):
             f'Revisa el respaldo PDF adjunto y responde por el chat del caso.\n'
         ),
         attachment
+    )
+
+
+# Informa al cliente que el abogado asignado dio por terminado el caso.
+def notify_case_closed(consulta):
+    create_notification(
+        consulta['usuario_id'],
+        'Caso cerrado',
+        f'El abogado marco como cerrado tu caso "{consulta["titulo"]}".',
+        f'/consultas/{consulta["id"]}/chat'
+    )
+    send_email_with_fallback(
+        consulta['cliente_email'],
+        f'Caso cerrado #{consulta["id"]}',
+        (
+            f'El abogado asignado marco como cerrado tu caso "{consulta["titulo"]}".\n'
+            f'Puedes revisar el historial y el respaldo PDF desde el sistema.\n'
+        )
     )
 
 
@@ -970,6 +990,28 @@ def asignar_consulta(consulta_id):
     return redirect('/consultas')
 
 
+# Solo el abogado asignado puede cerrar un caso. El historial permanece disponible para consulta.
+@app.route('/consultas/<int:consulta_id>/cerrar', methods=['POST'])
+def cerrar_consulta(consulta_id):
+    if not login_required() or session.get('tipo') != 'abogado':
+        abort(403)
+
+    consulta = get_consulta_por_id(consulta_id)
+    if not consulta or consulta['abogado_id'] != session['user_id']:
+        abort(403)
+    if consulta['estado'] == 'cerrado':
+        flash('Este caso ya estaba cerrado.')
+        return redirect('/consultas')
+
+    cur = mysql.connection.cursor()
+    cur.execute("UPDATE consultas SET estado = %s WHERE id = %s", ('cerrado', consulta_id))
+    mysql.connection.commit()
+
+    notify_case_closed(get_consulta_por_id(consulta_id))
+    flash('Caso cerrado y cliente notificado.')
+    return redirect('/consultas')
+
+
 # Ruta del chat privado del caso: muestra mensajes y permite enviar uno nuevo.
 @app.route('/consultas/<int:consulta_id>/chat', methods=['GET', 'POST'])
 def chat_consulta(consulta_id):
@@ -985,6 +1027,9 @@ def chat_consulta(consulta_id):
         # El dueno puede supervisar el chat, pero no intervenir en conversaciones confidenciales.
         if session.get('tipo') not in ('cliente', 'abogado'):
             abort(403)
+        if consulta['estado'] == 'cerrado':
+            flash('El caso esta cerrado y el chat es solo de lectura.')
+            return redirect(url_for('chat_consulta', consulta_id=consulta_id))
         mensaje = request.form.get('mensaje', '').strip()
         if mensaje:
             cur = mysql.connection.cursor()

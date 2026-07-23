@@ -25,6 +25,9 @@
                 {% if session['tipo'] == 'dueno' %}
                     <th>Asignar</th>
                 {% endif %}
+                {% if session['tipo'] == 'abogado' %}
+                    <th>Accion</th>
+                {% endif %}
             </tr>
 
             {% for c in consultas %}
@@ -64,6 +67,18 @@
                             </select>
                             <button class="button small" type="submit">Guardar</button>
                         </form>
+                    </td>
+                {% endif %}
+                {% if session['tipo'] == 'abogado' %}
+                    <td>
+                        {% if c['estado'] == 'cerrado' %}
+                            <span class="status-badge">Cerrado</span>
+                        {% else %}
+                            <form method="POST" action="{{ url_for('cerrar_consulta', consulta_id=c['id']) }}" data-loading-title="Cerrando caso" data-loading-description="Estamos guardando el cierre y avisando al cliente.">
+                                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                                <button class="button small" type="submit">Cerrar caso</button>
+                            </form>
+                        {% endif %}
                     </td>
                 {% endif %}
             </tr>

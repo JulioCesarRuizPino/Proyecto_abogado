@@ -10,21 +10,30 @@
     const storageKey = 'lexora_sound_enabled';
     const unreadKey = `lexora_last_unread_count_${currentUser}`;
 
-    // En una pagina publica no se consulta ni se muestran avisos de una sesion anterior.
-    if (!notificationsEnabled) {
-        const form = document.querySelector('[data-case-form]');
-        if (form) {
+    // Todos los formularios POST usan el mismo indicador para evitar reenvios y dar feedback inmediato.
+    const bindLoadingForms = () => {
+        const overlay = document.querySelector('[data-global-loading]');
+        const title = overlay?.querySelector('[data-loading-title]');
+        const description = overlay?.querySelector('[data-loading-description]');
+        document.querySelectorAll('form[method="POST"]').forEach((form) => {
             form.addEventListener('submit', () => {
                 if (!form.checkValidity()) return;
-                const overlay = document.querySelector('[data-consulta-loading]');
-                const button = form.querySelector('[data-submit-consulta]');
+                if (title) title.textContent = form.dataset.loadingTitle || 'Guardando cambios';
+                if (description) description.textContent = form.dataset.loadingDescription || 'Estamos procesando tu solicitud. Esto puede tardar unos segundos.';
                 if (overlay) overlay.hidden = false;
+                const button = form.querySelector('button[type="submit"]');
                 if (button) {
                     button.disabled = true;
-                    button.textContent = 'Enviando...';
+                    button.textContent = 'Procesando...';
                 }
             });
-        }
+        });
+    };
+
+    bindLoadingForms();
+
+    // En una pagina publica no se consulta ni se muestran avisos de una sesion anterior.
+    if (!notificationsEnabled) {
         return;
     }
 
@@ -133,17 +142,4 @@
         });
     }
 
-    const caseForm = document.querySelector('[data-case-form]');
-    if (caseForm) {
-        caseForm.addEventListener('submit', () => {
-            if (!caseForm.checkValidity()) return;
-            const overlay = document.querySelector('[data-consulta-loading]');
-            const button = caseForm.querySelector('[data-submit-consulta]');
-            if (overlay) overlay.hidden = false;
-            if (button) {
-                button.disabled = true;
-                button.textContent = 'Enviando...';
-            }
-        });
-    }
 })();

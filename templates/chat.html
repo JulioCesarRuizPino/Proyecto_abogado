@@ -22,14 +22,21 @@
         </div>
     </div>
 
-    <form class="card form-card" method="POST">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <h2>Enviar mensaje</h2>
-        <label>
-            Mensaje
-            <textarea name="mensaje" placeholder="Escribe aqui el seguimiento del caso..." required></textarea>
-        </label>
-        <button class="button primary full" type="submit">Enviar</button>
-    </form>
+    {% if consulta['estado'] == 'cerrado' %}
+        <aside class="card form-card">
+            <h2>Caso cerrado</h2>
+            <p>El historial se conserva para consulta, pero este chat ya no acepta mensajes nuevos.</p>
+        </aside>
+    {% elif session['tipo'] in ('cliente', 'abogado') %}
+        <form class="card form-card" method="POST" data-loading-title="Enviando mensaje">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <h2>Enviar mensaje</h2>
+            <label>
+                Mensaje
+                <textarea name="mensaje" placeholder="Escribe aqui el seguimiento del caso..." required></textarea>
+            </label>
+            <button class="button primary full" type="submit">Enviar</button>
+        </form>
+    {% endif %}
 </section>
 {% endblock %}
